@@ -112,6 +112,10 @@ def churn_prediction(X,y = None, thres = 0.5):
 
     return y_pred, precision, recall, fscore, accuracy
 
+@st.cache
+def convert_df(df):
+    return df.to_csv().encode('utf-8')
+
 
 def main():
    
@@ -140,8 +144,9 @@ def main():
                     y_pred, precision, recall, fscore, accuracy = churn_prediction(X, y, propensity_rate)
                     agg_results = pd.DataFrame({'Precision': [precision], 'Recall': [recall], 'F-Score': [fscore], 'Accuracy': [accuracy]}, index= ['Model Scores'])
                     customer_predictions = pd.DataFrame({'CMU_ID_new': cid, 'Churn_Prediction': y_pred})
+                    customer_predictions_csv = convert_df(customer_predictions)
                     st.table(agg_results)
-                    st.download_button('Download Predictions', customer_predictions, 'churn_prediction.csv', 'text/csv')
+                    st.download_button('Download Predictions', customer_predictions_csv, 'churn_prediction.csv', 'text/csv')
 
 
 
