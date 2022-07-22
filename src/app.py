@@ -89,7 +89,10 @@ def prepare_data(df_cust_churn):
 
     #MinMax Standardization
     X = CHURN_SCALER.transform(X)
-    return X, y
+    #get customer ID to tie back the prediction results
+    CID = df_churn['CMU_ID_new']
+
+    return X, y, CID
 
 
 
@@ -107,7 +110,7 @@ def churn_prediction(X,y = None, thres = 0.5):
     accuracy = np.round(accuracy_score(y, y_pred)*100, 2)
     print(accuracy)
 
-    return precision, recall, fscore, accuracy
+    return y_pred, precision, recall, fscore, accuracy
 
 
 def main():
@@ -133,10 +136,12 @@ def main():
                 pred_button = st.button('Predict Churn')
             if pred_button:
                 with st.spinner('Churn Model Working....'):
-                    X, y = prepare_data(df)
-                    precision, recall, fscore, accuracy = churn_prediction(X, y, propensity_rate)
-                    results = pd.DataFrame({'Precision': [precision], 'Recall': [recall], 'F-Score': [fscore], 'Accuracy': [accuracy]}, index= ['Model Scores'])
-                    st.table(results)
+                    X, y, cid = prepare_data(df)
+                    y_pred, precision, recall, fscore, accuracy = churn_prediction(X, y, propensity_rate)
+                    agg_results = pd.DataFrame({'Precision': [precision], 'Recall': [recall], 'F-Score': [fscore], 'Accuracy': [accuracy]}, index= ['Model Scores'])
+                    customer_predictions = pd.DataFrame({'CMU_ID_new': cid, 'Churn_Prediction': y_pred})
+                    st.table(agg_results)
+                    st.download_button('Download Predictions', customer_predictions, 'churn_prediction.csv', 'text/csv')
 
 
 
