@@ -22,8 +22,8 @@ import datetime
 
 
 #loading the model
-CHURN_MODEL  = pickle.load(open('/models/churn_model.pickle', 'rb'))
-CHURN_SCALER = joblib.load('/models/churn_scaler.save') 
+CHURN_MODEL  = pickle.load(open('/app/customeranalysis/models/churn_model.pickle', 'rb'))
+CHURN_SCALER = joblib.load('/app/customeranalysis/models/churn_scaler.save') 
 
 fig = plt.figure()
 
