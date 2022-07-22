@@ -1,0 +1,12 @@
+# Ignore Mac system files
+.DS_store
+
+# Ignore ipynb checkpoints
+src/.ipynb_checkpoints/
+.ipynb_checkpoints
+
+# Ignore files related to API keys
+.env
+
+#Ignore data folder
+data
