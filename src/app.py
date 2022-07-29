@@ -12,6 +12,7 @@ from sklearn.metrics import plot_confusion_matrix, plot_roc_curve, plot_precisio
 import pickle
 import joblib
 import datetime
+import xgboost
 
 
 #loading the model
