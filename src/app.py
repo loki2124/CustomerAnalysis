@@ -15,12 +15,14 @@ import datetime
 
 
 #loading the model
-# CHURN_MODEL  = pickle.load(open('/app/customeranalysis/models/churn_model.pickle', 'rb'))
-# CHURN_SCALER = joblib.load('/app/customeranalysis/models/churn_scaler.save') 
-# USAGE_MODEL = pickle.load(open('/app/customeranalysis/models/usage_model.pickle', 'rb'))
-CHURN_MODEL  = pickle.load(open('./models/churn_model.pickle', 'rb'))
-CHURN_SCALER = joblib.load('./models/churn_scaler.save') 
-USAGE_MODEL = pickle.load(open('./models/usage_model.pickle', 'rb'))
+#cloud directory
+CHURN_MODEL  = pickle.load(open('/app/customeranalysis/models/churn_model.pickle', 'rb'))
+CHURN_SCALER = joblib.load('/app/customeranalysis/models/churn_scaler.save') 
+USAGE_MODEL = pickle.load(open('/app/customeranalysis/models/usage_model.pickle', 'rb'))
+#local directory
+# CHURN_MODEL  = pickle.load(open('./models/churn_model.pickle', 'rb'))
+# CHURN_SCALER = joblib.load('./models/churn_scaler.save') 
+# USAGE_MODEL = pickle.load(open('./models/usage_model.pickle', 'rb'))
 fig = plt.figure()
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
