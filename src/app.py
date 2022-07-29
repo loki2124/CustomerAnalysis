@@ -5,16 +5,9 @@ import pandas as pd
 pd.set_option('display.max_columns', None)
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn import preprocessing
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import RidgeClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import plot_confusion_matrix, plot_roc_curve, plot_precision_recall_curve,ConfusionMatrixDisplay
 
 import pickle
 import joblib
@@ -22,11 +15,15 @@ import datetime
 
 
 #loading the model
-CHURN_MODEL  = pickle.load(open('/app/customeranalysis/models/churn_model.pickle', 'rb'))
-CHURN_SCALER = joblib.load('/app/customeranalysis/models/churn_scaler.save') 
-
+# CHURN_MODEL  = pickle.load(open('/app/customeranalysis/models/churn_model.pickle', 'rb'))
+# CHURN_SCALER = joblib.load('/app/customeranalysis/models/churn_scaler.save') 
+# USAGE_MODEL = pickle.load(open('/app/customeranalysis/models/usage_model.pickle', 'rb'))
+CHURN_MODEL  = pickle.load(open('./models/churn_model.pickle', 'rb'))
+CHURN_SCALER = joblib.load('./models/churn_scaler.save') 
+USAGE_MODEL = pickle.load(open('./models/usage_model.pickle', 'rb'))
 fig = plt.figure()
 
+st.set_option('deprecation.showPyplotGlobalUse', False)
 
 original_title = '<p style="font-family:Ariel; text-align:center; color:saddlebrown ; font-size:50px; background-color:#FEE1D1;opacity: 0.9;">Customer Analysis</p>'
 st.markdown(original_title, unsafe_allow_html=True)
@@ -36,7 +33,7 @@ st.text("")
 
 
 
-def prepare_data(df_cust_churn):
+def prepare_churn_data(df_cust_churn):
     #converting datetime columns using pandas datetime 
     df_cust_churn['month_of_year'] = pd.to_datetime(df_cust_churn['month_of_year'])
     df_cust_churn['account_month'] = pd.to_datetime(df_cust_churn['account_month'])
@@ -95,22 +92,85 @@ def prepare_data(df_cust_churn):
     return X, y, CID
 
 
+def prepare_usage_data(df):
 
-def churn_prediction(X,y = None, thres = 0.5):
-    # predict probabilities
-    y_pred = (CHURN_MODEL.predict_proba(X)[:,1] >= thres).astype(bool)
-    cf_matrix = confusion_matrix(y, y_pred)
-    print(cf_matrix)
+    x=df[['contract',
+    'billing_model',
+    'contract_tier',
+    'continent',
+    'market_segment',
+    'support_cases_count',
+    'account_sfdc_cases_count_s1',
+    'account_sfdc_cases_count_s2',
+    'account_sfdc_cases_count_s3',
+    'account_sfdc_industry',
+    'account_sfdc_sector',
+    'account_sfdc_mkt_registration_source',
+    'account_sfdc_use_case',
+    'search_requests_24_avg']]
 
-    recall = np.round(cf_matrix[1][1]/(cf_matrix[1][1] + cf_matrix[0][1]),2)
-    precision = np.round(cf_matrix[1][1]/(cf_matrix[1][1] + cf_matrix[1][0]),2)
-    fscore = np.round((2 * precision * recall) / (precision + recall),2)
-    print(recall, precision, fscore)
+    df3=df[(~df['deactivate_month'].isna()) & (~df['trial_start_month'].isna())]
+    df3=df3.groupby('CMU_ID_new').agg({'deactivate_month':['max'],'trial_start_month':['min']})
+    df3.columns=['max_deactivate_month','min_trial_start_month']
+    
+    df3=df3[(pd.to_datetime(df3['max_deactivate_month'])-pd.to_datetime(df3['min_trial_start_month'])).dt.days<60]
+    df2=df[~df['CMU_ID_new'].isin(df3.index)]
+        
+    df2=df2[[
+    'CMU_ID_new',   #Added by Loki to get CID
+    'ram_capacity_gb_avg',
+    'contract',
+    'billing_model',
+    'contract_tier',
+    'continent',
+    'market_segment',
+    'support_cases_count'
+    ]]
+    df2=df2.dropna() 
+    
+    df2['target']=df2.apply(lambda y:1 if y['ram_capacity_gb_avg']>df2['ram_capacity_gb_avg'].median() else 0,axis=1 )
 
-    accuracy = np.round(accuracy_score(y, y_pred)*100, 2)
-    print(accuracy)
+    df3 = pd.get_dummies(df2, columns = list(set(df2.columns)-{'target','ram_capacity_gb_avg','support_cases_count', 'CMU_ID_new'}))
+    
+    # load data
+    fts=list(set(df3.columns)-{'target','ram_capacity_gb_avg', 'CMU_ID_new'}) 
+    # split data into X and y
+    X = df3[fts].values
+    y = df3['target'].values
+    
+    CID = df2['CMU_ID_new']
+    return X, y, CID
 
-    return y_pred, precision, recall, fscore, accuracy
+
+def model_prediction(X,y = None, model = 'CHURN', thres = 0.5):
+
+    y_pred = None
+    if model == 'CHURN':
+        # predict probabilities
+        y_pred = (CHURN_MODEL.predict_proba(X)[:,1] >= thres).astype(bool)
+    elif model == 'USAGE':
+        y_pred = (USAGE_MODEL.predict(X))
+
+    if y_pred is not None:
+        cf_matrix = confusion_matrix(y, y_pred)
+        print(cf_matrix)
+        recall = np.round(cf_matrix[1][1]/(cf_matrix[1][1] + cf_matrix[0][1]),2)
+        precision = np.round(cf_matrix[1][1]/(cf_matrix[1][1] + cf_matrix[1][0]),2)
+        fscore = np.round((2 * precision * recall) / (precision + recall),2)
+        print(recall, precision, fscore)
+
+        accuracy = np.round(accuracy_score(y, y_pred)*100, 2)
+        print(accuracy)
+    
+    return y_pred, precision, recall, fscore, accuracy, cf_matrix
+
+def plot_metrics(cf_matrix, class_names = None):
+        st.subheader("Confusion Matrix") 
+        disp = ConfusionMatrixDisplay(confusion_matrix=cf_matrix,
+                              display_labels= class_names)
+        disp = disp.plot()
+        st.pyplot()
+    
 
 @st.cache
 def convert_df(df):
@@ -127,26 +187,42 @@ def main():
     st.text("")
     st.text("")
 
-    if option == 'Churn':
-        uploaded_file = st.file_uploader("Choose a file")
-        if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file)
-            df = df.drop(df.columns[0], axis=1)
-            st.write(df)
+    #file uploader 
+    uploaded_file = st.file_uploader("Choose a file")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        df = df.drop(df.columns[0], axis=1)
+        st.write(df)
+        propensity_rate = st.slider('Propensity Rate', 0.00, 1.00, 0.50)
 
-            propensity_rate = st.slider('Propensity Rate', 0.00, 1.00, 0.05)
+    if option == 'Churn':
             col1, col2, col3 , col4, col5 = st.columns(5)
             with col3:
                 pred_button = st.button('Predict Churn')
             if pred_button:
                 with st.spinner('Churn Model Working....'):
-                    X, y, cid = prepare_data(df)
-                    y_pred, precision, recall, fscore, accuracy = churn_prediction(X, y, propensity_rate)
+                    X, y, cid = prepare_churn_data(df)
+                    y_pred, precision, recall, fscore, accuracy, cf = model_prediction(X, y, thres = propensity_rate, model = 'CHURN')
                     agg_results = pd.DataFrame({'Precision': [precision], 'Recall': [recall], 'F-Score': [fscore], 'Accuracy': [accuracy]}, index= ['Model Scores'])
                     customer_predictions = pd.DataFrame({'CMU_ID_new': cid, 'Churn_Prediction': y_pred})
                     customer_predictions_csv = convert_df(customer_predictions)
                     st.table(agg_results)
-                    st.download_button('Download Predictions', customer_predictions_csv, 'churn_prediction.csv', 'text/csv')
+                    plot_metrics(cf, class_names = ['No Churn', 'Churn'])
+                    st.download_button('Download Churn Predictions', customer_predictions_csv, 'churn_prediction.csv', 'text/csv')
+    if option == 'Usage':
+            col1, col2, col3 , col4, col5 = st.columns(5)
+            with col3:
+                pred_button = st.button('Predict Usage')
+            if pred_button:
+                with st.spinner('Usage Model Working....'):
+                    X, y, cid = prepare_usage_data(df)
+                    y_pred, precision, recall, fscore, accuracy, cf = model_prediction(X, y, model = 'USAGE', thres = propensity_rate)
+                    agg_results = pd.DataFrame({'Precision': [precision], 'Recall': [recall], 'F-Score': [fscore], 'Accuracy': [accuracy]}, index= ['Model Scores'])
+                    customer_predictions = pd.DataFrame({'CMU_ID_new': cid, 'Usage_Prediction': y_pred})
+                    customer_predictions_csv = convert_df(customer_predictions)
+                    st.table(agg_results)
+                    plot_metrics(cf, class_names = ['No Use', 'Use'])
+                    st.download_button('Download Usage Predictions', customer_predictions_csv, 'usage_prediction.csv', 'text/csv')
 
 
 
